@@ -30,6 +30,32 @@ export interface Database {
           created_at?: string
         }
       }
+      word_pairs: {
+        Row: {
+          id: string
+          word_id: string
+          back: string
+          user_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          word_id: string
+          back: string
+          user_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          word_id?: string
+          back?: string
+          user_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
