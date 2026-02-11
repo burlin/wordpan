@@ -40,7 +40,23 @@ docker compose logs -f ai
 **Console:**
 - Ошибки CORS или "Failed to fetch" — запрос не доходит до сервера
 
-## 5. Ручная проверка API (PowerShell)
+## 5. Generate AI (word-pairs/enrich)
+
+Те же шаги: смотри `docker compose logs -f ai`. При нажатии Generate AI:
+
+| В логах | Значит |
+|---------|--------|
+| `[API] POST /api/word-pairs/enrich` | Запрос дошёл |
+| `[DEBUG] word-pairs/enrich: handler started` | Обработчик запущен |
+| `[DEBUG] word-pairs/enrich: returning cached` | Уже было в кэше |
+| `[DEBUG] word-pairs/enrich: pair not found` | pair_id не найден в word_pairs |
+| `[DEBUG] word-pairs/enrich: word data not found` | Нет слов в таблице words |
+| `[DEBUG] word-pairs/enrich: calling CrewAI...` | Идёт вызов LLM |
+| `[API] word-pairs/enrich error: ...` | Ошибка (CrewAI, GROQ и т.п.) |
+
+**Браузер:** если есть ошибка, она показывается красным текстом под кнопкой Generate AI.
+
+## 6. Ручная проверка API (PowerShell)
 
 ```powershell
 # Требуется JWT из браузера (DevTools → Application → Local Storage → supabase auth)

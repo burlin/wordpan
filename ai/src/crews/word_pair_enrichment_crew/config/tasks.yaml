@@ -1,0 +1,27 @@
+enrichment_task:
+  description: >
+    You are given two words: {word_a} and {word_b}.
+
+    Create:
+    1) 3-5 short, natural example sentences that use both words.
+    2) Similar words for each input word (3-5 each).
+    3) 3-5 paraphrased versions of your examples.
+
+    Return a JSON object with the following structure:
+    {{
+      "examples": ["example sentence 1", "example sentence 2"],
+      "similar_words": {{
+        "{word_a}": ["similar1", "similar2"],
+        "{word_b}": ["similar1", "similar2"]
+      }},
+      "paraphrases": ["paraphrase 1", "paraphrase 2"]
+    }}
+
+    Rules:
+    - Every example and paraphrase must include both {word_a} and {word_b}.
+    - Keep sentences short and natural.
+    - Output must be valid JSON.
+  expected_output: >
+    A JSON object with arrays for examples and paraphrases and a mapping of each word
+    to its list of similar words.
+  agent: enrichment_agent

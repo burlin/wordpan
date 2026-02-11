@@ -91,11 +91,11 @@ async def get_user_context(user_id: str) -> Optional[str]:
         User context string or None if not found
     """
     try:
-        # Fetch user context from the profiles table (maybe_single: no profile = None)
-        response = supabase.table("profiles").select("context").eq("id", user_id).maybe_single().execute()
-
-        if response.data:
-            return response.data.get("context", "")
+        # Fetch user context from the profiles table
+        response = supabase.table("profiles").select("context").eq("id", user_id).limit(1).execute()
+        rows = getattr(response, "data", None) or []
+        if rows:
+            return rows[0].get("context", "")
         return None
     except Exception as e:
         print(f"Error fetching user context: {e}")
@@ -135,8 +135,8 @@ async def generate_word_pair_enrichment(word_a: str, word_b: str) -> WordPairEnr
     Generate examples, similar words, and paraphrases for a word pair.
     """
     inputs = {
-        'word_a': jsonify(word_a).get_data(as_text=True),
-        'word_b': jsonify(word_b).get_data(as_text=True),
+        'word_a': str(word_a),
+        'word_b': str(word_b),
     }
 
     result = await WordPairEnrichmentCrew().crew().kickoff_async(inputs=inputs)
@@ -227,6 +227,7 @@ async def enrich_word_pair():
     Request body:
         { "pair_id": "<uuid>" }
     """
+    print("[DEBUG] word-pairs/enrich: handler started")
     try:
         data = request.get_json()
 
@@ -235,45 +236,58 @@ async def enrich_word_pair():
 
         pair_id = data.get("pair_id")
         user_id = request.user.id
+        print(f"[DEBUG] word-pairs/enrich: pair_id={pair_id}, user_id={user_id}")
 
-        db = supabase_admin if supabase_admin else supabase
-        # Check cache (maybe_single: 0 rows = None, not error)
+        # Enrich needs service role to bypass RLS (server runs without user JWT context)
+        if not supabase_admin:
+            print("[DEBUG] word-pairs/enrich: SUPABASE_SERVICE_ROLE_KEY not set")
+            return jsonify({"error": "Generate AI requires SUPABASE_SERVICE_ROLE_KEY in ai/.env"}), 500
+        db = supabase_admin
+
+        # Check cache (limit 1 avoids maybe_single() edge cases with 0 rows)
         cache_resp = db.table("word_pair_ai_cache") \
             .select("*") \
             .eq("word_pair_id", pair_id) \
             .eq("user_id", user_id) \
-            .maybe_single() \
+            .limit(1) \
             .execute()
+        cache_rows = getattr(cache_resp, "data", None) or []
+        if cache_rows:
+            print("[DEBUG] word-pairs/enrich: returning cached")
+            return jsonify(cache_rows[0]), 200
 
-        if cache_resp.data:
-            return jsonify(cache_resp.data), 200
-
-        # Fetch word pair (maybe_single: 0 rows = pair not found)
+        # Fetch word pair
         pair_resp = db.table("word_pairs") \
             .select("id, word_a_id, word_b_id, user_id") \
             .eq("id", pair_id) \
             .eq("user_id", user_id) \
-            .maybe_single() \
+            .limit(1) \
             .execute()
-
-        if not pair_resp.data:
+        pair_rows = getattr(pair_resp, "data", None) or []
+        pair_data = pair_rows[0] if pair_rows else None
+        if not pair_data:
+            print("[DEBUG] word-pairs/enrich: pair not found")
             return jsonify({"error": "Word pair not found"}), 404
 
-        word_ids = [pair_resp.data["word_a_id"], pair_resp.data["word_b_id"]]
+        word_ids = [pair_data["word_a_id"], pair_data["word_b_id"]]
         words_resp = db.table("words") \
             .select("id, word") \
             .in_("id", word_ids) \
             .execute()
 
-        words_map = {w["id"]: w["word"] for w in (words_resp.data or [])}
-        word_a = words_map.get(pair_resp.data["word_a_id"])
-        word_b = words_map.get(pair_resp.data["word_b_id"])
+        words_resp_data = getattr(words_resp, "data", None) if words_resp else None
+        words_map = {w["id"]: w["word"] for w in (words_resp_data or [])}
+        word_a = words_map.get(pair_data["word_a_id"])
+        word_b = words_map.get(pair_data["word_b_id"])
 
         if not word_a or not word_b:
+            print("[DEBUG] word-pairs/enrich: word data not found")
             return jsonify({"error": "Word data not found"}), 404
 
+        print(f"[DEBUG] word-pairs/enrich: calling CrewAI for {word_a} + {word_b}")
         # Generate enrichment
         enrichment = await generate_word_pair_enrichment(word_a, word_b)
+        print("[DEBUG] word-pairs/enrich: CrewAI done")
         payload = enrichment.model_dump()
         payload["word_pair_id"] = pair_id
         payload["user_id"] = user_id
@@ -284,9 +298,10 @@ async def enrich_word_pair():
                 .insert(payload) \
                 .execute()
 
-            if insert_resp.data:
+            insert_data = getattr(insert_resp, "data", None) if insert_resp else None
+            if insert_data:
                 print(f"[API] word-pairs/enrich: cache saved for pair {pair_id}")
-                return jsonify(insert_resp.data[0]), 200
+                return jsonify(insert_data[0]), 200
         except Exception as insert_err:
             print(f"[API] word-pairs/enrich: insert failed (returning data anyway): {insert_err}")
 
