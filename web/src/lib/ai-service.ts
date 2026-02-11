@@ -1,10 +1,18 @@
 import { supabase } from './supabase'
 
-const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000'
+// Пустая строка = relative URL = запрос идёт через Vite proxy (нет CORS)
+const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL ?? ''
 
 export interface RandomPhraseResponse {
   phrase: string
   words_used: string[]
+}
+
+export interface WordPairEnrichmentResponse {
+  word_pair_id: string
+  examples: string[]
+  similar_words: Record<string, string[]>
+  paraphrases: string[]
 }
 
 /**
@@ -32,6 +40,33 @@ export async function generateRandomPhrase(words: string[]): Promise<RandomPhras
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
     throw new Error(errorData.error || `Failed to generate phrase: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Generate or fetch cached enrichment for a word pair
+ */
+export async function generateWordPairEnrichment(pairId: string): Promise<WordPairEnrichmentResponse> {
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (!session) {
+    throw new Error('User must be authenticated to generate enrichment')
+  }
+
+  const response = await fetch(`${AI_SERVICE_URL}/api/word-pairs/enrich`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ pair_id: pairId }),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+    throw new Error(errorData.error || `Failed to enrich word pair: ${response.statusText}`)
   }
 
   return response.json()
