@@ -112,7 +112,7 @@ export function WordPairForm({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
-              {isEditing ? 'Edit word pair' : 'Add word pair'}
+              {isEditing ? 'Edit card' : 'Add card'}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -172,7 +172,7 @@ export function WordPairForm({
                 id="back"
                 value={back}
                 onChange={(e) => setBack(e.target.value)}
-                placeholder="e.g. способность"
+                placeholder="e.g. ability"
               />
             </div>
             {error && (

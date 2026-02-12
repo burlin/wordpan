@@ -19,6 +19,7 @@ export interface UseSentencePairsReturn {
   createPair: (wordAId: string, wordBId: string) => Promise<void>
   deletePair: (id: string) => Promise<void>
   refresh: () => Promise<void>
+  updatePhraseIndex: (pairId: string, index: number) => Promise<void>
 }
 
 export function useSentencePairs(): UseSentencePairsReturn {
@@ -31,7 +32,8 @@ export function useSentencePairs(): UseSentencePairsReturn {
       setLoading(true)
       setError(null)
 
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) {
         setPairs([])
         return
@@ -75,8 +77,9 @@ export function useSentencePairs(): UseSentencePairsReturn {
   }, [fetchPairs])
 
   const createPair = useCallback(async (wordAId: string, wordBId: string) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
+    if (!user) throw new Error('Not authenticated. Please log in again.')
 
     if (wordAId === wordBId) {
       throw new Error('Please choose two different words')
@@ -110,6 +113,21 @@ export function useSentencePairs(): UseSentencePairsReturn {
     await fetchPairs()
   }, [fetchPairs])
 
+  const updatePhraseIndex = useCallback(
+    async (pairId: string, index: number) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
+      if (!user) return
+      const { error } = await supabase
+        .from('word_pair_ai_cache')
+        .update({ current_phrase_index: index })
+        .eq('word_pair_id', pairId)
+        .eq('user_id', user.id)
+      if (!error) await fetchPairs()
+    },
+    [fetchPairs]
+  )
+
   return {
     pairs,
     loading,
@@ -117,5 +135,6 @@ export function useSentencePairs(): UseSentencePairsReturn {
     createPair,
     deletePair,
     refresh: fetchPairs,
+    updatePhraseIndex,
   }
 }

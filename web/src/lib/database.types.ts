@@ -30,7 +30,7 @@ export interface Database {
           created_at?: string
         }
       }
-      word_pairs: {
+      cards: {
         Row: {
           id: string
           word_id: string
@@ -52,6 +52,67 @@ export interface Database {
           word_id?: string
           back?: string
           user_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      word_pairs: {
+        Row: {
+          id: string
+          word_a_id: string
+          word_b_id: string
+          user_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          word_a_id: string
+          word_b_id: string
+          user_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          word_a_id?: string
+          word_b_id?: string
+          user_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      word_pair_ai_cache: {
+        Row: {
+          id: string
+          word_pair_id: string
+          user_id: string
+          examples: Json
+          similar_words: Json
+          paraphrases: Json
+          current_phrase_index: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          word_pair_id: string
+          user_id: string
+          examples: Json
+          similar_words: Json
+          paraphrases: Json
+          current_phrase_index?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          word_pair_id?: string
+          user_id?: string
+          examples?: Json
+          similar_words?: Json
+          paraphrases?: Json
+          current_phrase_index?: number
           created_at?: string
           updated_at?: string
         }

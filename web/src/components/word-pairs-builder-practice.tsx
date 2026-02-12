@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { IconArrowRight, IconRefresh } from '@tabler/icons-react'
+import { IconArrowRight, IconChevronLeft, IconChevronRight, IconRefresh } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useSentencePairs } from '@/hooks/use-sentence-pairs'
@@ -10,45 +10,79 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 
 export function WordPairsBuilderPractice() {
-  const { pairs, loading, error, refresh } = useSentencePairs()
+  const { pairs, loading, error, refresh, updatePhraseIndex } = useSentencePairs()
   const [pairIndex, setPairIndex] = useState(0)
-  const [exampleIndex, setExampleIndex] = useState(0)
-  const [paraphraseIndex, setParaphraseIndex] = useState(0)
+  const [localPhraseIndex, setLocalPhraseIndex] = useState(0)
   const [enrichingId, setEnrichingId] = useState<string | null>(null)
   const [enrichError, setEnrichError] = useState<string | null>(null)
-  /** Fresh enrichment from API - shown even if DB insert failed */
   const [freshEnrichment, setFreshEnrichment] = useState<WordPairEnrichmentResponse | null>(null)
 
   const current = pairs[pairIndex]
   const cache = current?.cache
   const displayData = freshEnrichment ?? cache
-  const examples = useMemo(() => (displayData?.examples as string[]) || [], [displayData])
-  const paraphrases = useMemo(() => (displayData?.paraphrases as string[]) || [], [displayData])
+  const phrases = useMemo(() => {
+    if (!displayData) return []
+    if ('phrases' in displayData && Array.isArray(displayData.phrases)) return displayData.phrases
+    const ex = (displayData.examples as string[]) || []
+    const par = (displayData.paraphrases as string[]) || []
+    return [...ex, ...par]
+  }, [displayData])
   const similar = useMemo(
     () => (displayData?.similar_words as Record<string, string[]>) || {},
     [displayData]
   )
+  const wordA = current?.word_a?.word ?? ''
+  const wordB = current?.word_b?.word ?? ''
+  const synonymsA = useMemo(
+    () => similar[wordA] ?? similar[wordA?.toLowerCase()] ?? [],
+    [similar, wordA]
+  )
+  const synonymsB = useMemo(
+    () => similar[wordB] ?? similar[wordB?.toLowerCase()] ?? [],
+    [similar, wordB]
+  )
+  const phraseIndex = freshEnrichment ? localPhraseIndex : ((cache?.current_phrase_index ?? 0) as number)
+  const currentPhrase = phrases[phraseIndex] ?? phrases[0] ?? '—'
 
   const handleNextPair = () => {
-    setExampleIndex(0)
-    setParaphraseIndex(0)
+    setLocalPhraseIndex(0)
     setEnrichError(null)
     setFreshEnrichment(null)
     setPairIndex((i) => Math.min(i + 1, pairs.length - 1))
   }
 
   const handlePrevPair = () => {
-    setExampleIndex(0)
-    setParaphraseIndex(0)
+    setLocalPhraseIndex(0)
     setEnrichError(null)
     setFreshEnrichment(null)
     setPairIndex((i) => Math.max(i - 1, 0))
+  }
+
+  const handlePrevPhrase = () => {
+    if (phrases.length <= 1) return
+    const next = (phraseIndex - 1 + phrases.length) % phrases.length
+    if (freshEnrichment) {
+      setLocalPhraseIndex(next)
+    } else {
+      updatePhraseIndex(current!.id, next)
+    }
+  }
+
+  const handleNextPhrase = () => {
+    if (phrases.length <= 1) return
+    const next = (phraseIndex + 1) % phrases.length
+    if (freshEnrichment) {
+      setLocalPhraseIndex(next)
+    } else {
+      updatePhraseIndex(current!.id, next)
+    }
   }
 
   const handleEnrich = async (pairId: string) => {
     setEnrichingId(pairId)
     setEnrichError(null)
     setFreshEnrichment(null)
+    setLocalPhraseIndex(0)
     try {
       const result = await generateWordPairEnrichment(pairId)
       setFreshEnrichment(result)
@@ -116,48 +150,84 @@ export function WordPairsBuilderPractice() {
       </CardHeader>
       <CardContent className="space-y-6">
         {displayData ? (
-          <>
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <div className="text-sm text-muted-foreground mb-1">Example</div>
-              <div className="text-base">{examples[exampleIndex] || '—'}</div>
-              <div className="mt-2 flex gap-2">
+          <div className="space-y-6">
+            {/* Phrases - one at a time, Prev/Next to switch */}
+            <section className="rounded-xl border-2 border-primary/20 bg-card p-5">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                Example phrases ({phraseIndex + 1} of {phrases.length || 1})
+              </h3>
+              <div className="flex items-center gap-3">
                 <Button
-                  size="sm"
                   variant="outline"
-                  onClick={() =>
-                    setExampleIndex((i) => (examples.length ? (i + 1) % examples.length : 0))
-                  }
+                  size="icon"
+                  onClick={handlePrevPhrase}
+                  disabled={phrases.length <= 1}
+                  aria-label="Previous phrase"
                 >
-                  Next example
+                  <IconChevronLeft className="size-5" />
+                </Button>
+                <p className="flex-1 text-lg leading-relaxed min-h-[3rem]">
+                  {currentPhrase}
+                </p>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleNextPhrase}
+                  disabled={phrases.length <= 1}
+                  aria-label="Next phrase"
+                >
+                  <IconChevronRight className="size-5" />
                 </Button>
               </div>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <div className="text-sm text-muted-foreground mb-1">Paraphrase</div>
-              <div className="text-base">{paraphrases[paraphraseIndex] || '—'}</div>
-              <div className="mt-2 flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    setParaphraseIndex((i) => (paraphrases.length ? (i + 1) % paraphrases.length : 0))
-                  }
-                >
-                  Next paraphrase
-                </Button>
+              {phrases.length > 1 && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Use arrows to switch phrases. Your selection is saved for the next visit.
+                </p>
+              )}
+            </section>
+
+            {/* Word A + synonyms */}
+            <section className="rounded-xl border bg-muted/30 p-4">
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                {wordA} — synonyms
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {synonymsA.length > 0 ? (
+                  synonymsA.map((s) => (
+                    <span
+                      key={s}
+                      className="rounded-md bg-secondary px-3 py-1 text-sm"
+                    >
+                      {s}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
               </div>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <div className="text-sm text-muted-foreground mb-1">Similar words</div>
-              <div className="text-sm text-muted-foreground">
-                {Object.entries(similar).map(([word, list]) => (
-                  <div key={word}>
-                    <span className="font-medium">{word}:</span> {list.join(', ')}
-                  </div>
-                ))}
+            </section>
+
+            {/* Word B + synonyms */}
+            <section className="rounded-xl border bg-muted/30 p-4">
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                {wordB} — synonyms
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {synonymsB.length > 0 ? (
+                  synonymsB.map((s) => (
+                    <span
+                      key={s}
+                      className="rounded-md bg-secondary px-3 py-1 text-sm"
+                    >
+                      {s}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
               </div>
-            </div>
-          </>
+            </section>
+          </div>
         ) : (
           <div className="space-y-2">
             <div className="text-muted-foreground">

@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-// Пустая строка = relative URL = запрос идёт через Vite proxy (нет CORS)
+// Empty string = relative URL = request goes through Vite proxy (no CORS)
 const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL ?? ''
 
 export interface RandomPhraseResponse {
@@ -13,6 +13,9 @@ export interface WordPairEnrichmentResponse {
   examples: string[]
   similar_words: Record<string, string[]>
   paraphrases: string[]
+  /** Merged examples + paraphrases */
+  phrases: string[]
+  current_phrase_index: number
 }
 
 /**

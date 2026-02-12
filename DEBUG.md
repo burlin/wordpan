@@ -1,76 +1,76 @@
-# Диагностика: почему нет ответа от AI
+# Debugging: why AI is not responding
 
-## 1. Запрос вообще доходит до сервера?
+## 1. Does the request reach the server?
 
-**Логи AI:**
+**AI logs:**
 ```powershell
 docker compose logs -f ai
 ```
 
-Сделай запрос (Generate / Random Phrase). Смотри в логах:
+Make a request (Generate / Random Phrase). Check the logs:
 
-| Что видно | Значит |
-|-----------|--------|
-| `[API] POST /api/random-phrase` | Запрос дошёл |
-| `[DEBUG] random-phrase: handler started` | Обработчик запустился |
-| Только `OPTIONS`, нет `POST` | CORS блокирует — запрос не отправляется |
+| In logs | Means |
+|---------|-------|
+| `[API] POST /api/random-phrase` | Request reached the server |
+| `[DEBUG] random-phrase: handler started` | Handler started |
+| Only `OPTIONS`, no `POST` | CORS blocking — request is not sent |
 
-## 2. Ошибка аутентификации?
+## 2. Auth error?
 
-| В логах | Значит |
-|---------|--------|
-| `[DEBUG] Auth failed: ...` | JWT не проходит проверку. Проверь `SUPABASE_ANON_KEY` в ai/.env — должен совпадать с ключом из web |
-| `401` в браузере | Тот же сценарий |
+| In logs | Means |
+|---------|-------|
+| `[DEBUG] Auth failed: ...` | JWT validation failed. Check `SUPABASE_ANON_KEY` in ai/.env — must match key from web |
+| `401` in browser | Same scenario |
 
-## 3. Ошибка в самом хэндлере?
+## 3. Error in the handler?
 
-| В логах | Значит |
-|---------|--------|
-| `[DEBUG] random-phrase: user_id=..., words=[...]` | Auth прошёл, идёт генерация |
-| `[DEBUG] random-phrase: calling CrewAI...` | Вызов LLM |
-| `[API] random-phrase error: ...` | Падение в CrewAI/LLM (часто нет GROQ_API_KEY или лимит) |
+| In logs | Means |
+|---------|-------|
+| `[DEBUG] random-phrase: user_id=..., words=[...]` | Auth passed, generating |
+| `[DEBUG] random-phrase: calling CrewAI...` | Calling LLM |
+| `[API] random-phrase error: ...` | Failure in CrewAI/LLM (often no GROQ_API_KEY or rate limit) |
 
-## 4. Проверка в браузере (DevTools F12)
+## 4. Browser check (DevTools F12)
 
 **Network:**
-- Найди запрос к `localhost:8000/api/random-phrase`
-- Status: 200 = ок, 401 = auth, 500 = ошибка на бэке, CORS error = нет CORS-заголовков
-- Response: посмотри тело ответа
+- Find the request to `localhost:8000/api/random-phrase`
+- Status: 200 = ok, 401 = auth, 500 = backend error, CORS error = missing CORS headers
+- Response: check the response body
 
 **Console:**
-- Ошибки CORS или "Failed to fetch" — запрос не доходит до сервера
+- CORS errors or "Failed to fetch" — request does not reach the server
 
 ## 5. Generate AI (word-pairs/enrich)
 
-Те же шаги: смотри `docker compose logs -f ai`. При нажатии Generate AI:
+Same steps: watch `docker compose logs -f ai`. When clicking Generate AI:
 
-| В логах | Значит |
-|---------|--------|
-| `[API] POST /api/word-pairs/enrich` | Запрос дошёл |
-| `[DEBUG] word-pairs/enrich: handler started` | Обработчик запущен |
-| `[DEBUG] word-pairs/enrich: returning cached` | Уже было в кэше |
-| `[DEBUG] word-pairs/enrich: pair not found` | pair_id не найден в word_pairs |
-| `[DEBUG] word-pairs/enrich: word data not found` | Нет слов в таблице words |
-| `[DEBUG] word-pairs/enrich: calling CrewAI...` | Идёт вызов LLM |
-| `[API] word-pairs/enrich error: ...` | Ошибка (CrewAI, GROQ и т.п.) |
+| In logs | Means |
+|---------|-------|
+| `[API] POST /api/word-pairs/enrich` | Request reached |
+| `[DEBUG] word-pairs/enrich: handler started` | Handler started |
+| `[DEBUG] word-pairs/enrich: returning cached` | Already in cache |
+| `[DEBUG] word-pairs/enrich: pair not found` | pair_id not found in word_pairs |
+| `[DEBUG] word-pairs/enrich: word data not found` | No words in words table |
+| `[DEBUG] word-pairs/enrich: calling CrewAI...` | Calling LLM |
+| `[API] word-pairs/enrich error: ...` | Error (CrewAI, GROQ, etc.) |
 
-**Браузер:** если есть ошибка, она показывается красным текстом под кнопкой Generate AI.
+**Browser:** if there is an error, it appears in red below the Generate AI button.
 
-## 6. Ручная проверка API (PowerShell)
+## 6. Manual API test (PowerShell)
 
 ```powershell
-# Требуется JWT из браузера (DevTools → Application → Local Storage → supabase auth)
-$token = "твой_jwt_токен"
+# Requires JWT from browser (DevTools → Application → Local Storage → supabase auth)
+$token = "your_jwt_token"
 $body = '{"words":["hello","world","test"]}'
 Invoke-RestMethod -Uri "http://localhost:8000/api/random-phrase" -Method POST -Headers @{
   "Content-Type"="application/json"; "Authorization"="Bearer $token"
 } -Body $body
 ```
 
-## Итоговая схема
+## Flow overview
 
 ```
-Браузер --[POST]--> localhost:8000
+Browser --[POST]--> localhost:8000
                         |
                         v
               [CORS] OPTIONS 200?
@@ -82,4 +82,4 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/random-phrase" -Method POST -H
                    [Response] 200 + JSON
 ```
 
-Где нет ответа — там и ищи проблему.
+Where there is no response — that is where to look for the problem.

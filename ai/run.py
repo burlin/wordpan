@@ -21,7 +21,7 @@ warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 app = Flask(__name__)
 
 # CORS - allow requests from localhost frontend (incl. 5174 when 5173 is busy)
-# supports_credentials=False: fetch не использует credentials, только Authorization header
+# supports_credentials=False: fetch does not use credentials, only Authorization header
 CORS(app, resources={
     r"/api/*": {
         "origins": ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174", "http://localhost:3000", "http://127.0.0.1:3000"],
@@ -253,8 +253,13 @@ async def enrich_word_pair():
             .execute()
         cache_rows = getattr(cache_resp, "data", None) or []
         if cache_rows:
+            row = cache_rows[0]
+            ex = row.get("examples") or []
+            par = row.get("paraphrases") or []
+            row["phrases"] = list(ex) + list(par)
+            row["current_phrase_index"] = row.get("current_phrase_index", 0)
             print("[DEBUG] word-pairs/enrich: returning cached")
-            return jsonify(cache_rows[0]), 200
+            return jsonify(row), 200
 
         # Fetch word pair
         pair_resp = db.table("word_pairs") \
@@ -288,24 +293,37 @@ async def enrich_word_pair():
         # Generate enrichment
         enrichment = await generate_word_pair_enrichment(word_a, word_b)
         print("[DEBUG] word-pairs/enrich: CrewAI done")
-        payload = enrichment.model_dump()
-        payload["word_pair_id"] = pair_id
-        payload["user_id"] = user_id
+        raw = enrichment.model_dump()
+        phrases = list(raw.get("examples", [])) + list(raw.get("paraphrases", []))
+        db_payload = {
+            "word_pair_id": pair_id,
+            "user_id": user_id,
+            "examples": raw.get("examples", []),
+            "paraphrases": raw.get("paraphrases", []),
+            "similar_words": raw.get("similar_words", {}),
+            "current_phrase_index": 0,
+        }
 
-        # Store cache (use admin to bypass RLS - user already verified)
         try:
-            insert_resp = db.table("word_pair_ai_cache") \
-                .insert(payload) \
-                .execute()
-
+            insert_resp = db.table("word_pair_ai_cache").insert(db_payload).execute()
             insert_data = getattr(insert_resp, "data", None) if insert_resp else None
             if insert_data:
+                row = insert_data[0]
+                row["phrases"] = phrases
                 print(f"[API] word-pairs/enrich: cache saved for pair {pair_id}")
-                return jsonify(insert_data[0]), 200
+                return jsonify(row), 200
         except Exception as insert_err:
             print(f"[API] word-pairs/enrich: insert failed (returning data anyway): {insert_err}")
 
-        return jsonify(payload), 200
+        return jsonify({
+            "word_pair_id": pair_id,
+            "user_id": user_id,
+            "examples": raw.get("examples", []),
+            "paraphrases": raw.get("paraphrases", []),
+            "similar_words": raw.get("similar_words", {}),
+            "phrases": phrases,
+            "current_phrase_index": 0,
+        }), 200
 
     except Exception as e:
         import traceback

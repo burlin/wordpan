@@ -21,44 +21,6 @@ export function WordPairsBuilderManage() {
     }
   }
 
-  const renderCache = (pair: typeof pairs[number]) => {
-    if (!pair.cache) return null
-    const examples = (pair.cache.examples as string[]) || []
-    const paraphrases = (pair.cache.paraphrases as string[]) || []
-    const similar = (pair.cache.similar_words as Record<string, string[]>) || {}
-
-    return (
-      <div className="mt-4 space-y-3 text-sm">
-        <div>
-          <div className="font-medium">Examples</div>
-          <ul className="list-disc pl-5 text-muted-foreground">
-            {examples.map((ex, i) => (
-              <li key={i}>{ex}</li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <div className="font-medium">Similar words</div>
-          <div className="text-muted-foreground">
-            {Object.entries(similar).map(([word, list]) => (
-              <div key={word}>
-                <span className="font-medium">{word}:</span> {list.join(', ')}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <div className="font-medium">Paraphrases</div>
-          <ul className="list-disc pl-5 text-muted-foreground">
-            {paraphrases.map((p, i) => (
-              <li key={i}>{p}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <Card>
@@ -77,7 +39,7 @@ export function WordPairsBuilderManage() {
         <CardHeader>
           <CardTitle>Your pairs</CardTitle>
           <CardDescription>
-            Generate AI enrichments and review cached results
+            Empty pairs need Generate AI. Ready pairs can be practiced.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -95,34 +57,45 @@ export function WordPairsBuilderManage() {
               No pairs yet. Add your first pair above.
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {pairs.map((pair) => (
-                <div key={pair.id} className="rounded-xl border p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-base font-medium">
+                <div
+                  key={pair.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium">
                       {pair.word_a?.word} + {pair.word_b?.word}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEnrich(pair.id)}
-                        disabled={enrichingId === pair.id}
-                      >
-                        <IconRefresh className="size-4" />
-                        {pair.cache ? 'Refresh AI' : 'Generate AI'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => deletePair(pair.id)}
-                      >
-                        <IconTrash className="size-4" />
-                        Delete
-                      </Button>
-                    </div>
+                    </span>
+                    {pair.cache ? (
+                      <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-600 dark:text-green-400">
+                        Ready
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        Empty
+                      </span>
+                    )}
                   </div>
-                  {renderCache(pair)}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEnrich(pair.id)}
+                      disabled={enrichingId === pair.id}
+                    >
+                      <IconRefresh className="size-4" />
+                      {pair.cache ? 'Refresh AI' : 'Generate AI'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => deletePair(pair.id)}
+                    >
+                      <IconTrash className="size-4" />
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

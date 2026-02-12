@@ -1,40 +1,42 @@
-# Чеклист запуска Wordpan
+# Wordpan Startup Checklist
 
-## 1. Supabase (обязательно)
+## 1. Supabase (required)
 
 ```powershell
 npx supabase start
 ```
 
-Проверить: `npx supabase status` — должен быть "running"
+Check: `npx supabase status` — should show "running"
 
-## 2. Docker-контейнеры
+Migrations: `npx supabase db push` (applies all new migrations, including current_phrase_index)
+
+## 2. Docker containers
 
 ```powershell
 docker compose up -d
 ```
 
-Проверить: `docker compose ps` — все сервисы (web, ai, phoenix, phoenix-db) должны быть "Up"
+Check: `docker compose ps` — all services (web, ai, phoenix, phoenix-db) should be "Up"
 
-## 3. Файл ai/.env (обязательно)
+## 3. File ai/.env (required)
 
-Должны быть заполнены:
-- `GROQ_API_KEY` — получить на https://console.groq.com/keys
-- `SUPABASE_URL` — `http://host.docker.internal:54321` (для Docker)
-- `SUPABASE_ANON_KEY` — из `npx supabase status`
-- `SUPABASE_SERVICE_ROLE_KEY` — из `npx supabase status` (Secret key)
+Must be set:
+- `GROQ_API_KEY` — get at https://console.groq.com/keys
+- `SUPABASE_URL` — `http://host.docker.internal:54321` (for Docker)
+- `SUPABASE_ANON_KEY` — from `npx supabase status`
+- `SUPABASE_SERVICE_ROLE_KEY` — from `npx supabase status` (Secret key)
 
-## 4. Файл web/.env.local (обязательно)
+## 4. File web/.env.local (required)
 
 - `VITE_SUPABASE_URL` — `http://127.0.0.1:54321`
-- `VITE_SUPABASE_ANON_KEY` — из supabase status (Publishable)
+- `VITE_SUPABASE_ANON_KEY` — from supabase status (Publishable)
 
-## 5. Открыть приложение
+## 5. Open the app
 
-- **Через Docker**: http://localhost:5173
-- **Локально** (pnpm dev в web/): http://localhost:5173 или 5174
+- **Via Docker**: http://localhost:5173
+- **Locally** (pnpm dev in web/): http://localhost:5173 or 5174
 
-## Быстрая проверка
+## Quick check
 
 ```powershell
 # Supabase
@@ -47,6 +49,6 @@ docker compose ps
 Invoke-WebRequest http://localhost:8000/health -UseBasicParsing
 ```
 
-## Важно: Origin для CORS
+## CORS origin
 
-AI принимает запросы с портов **5173** и **5174**. Если фронт на другом порту — добавь в `ai/run.py` в список `origins`.
+AI accepts requests from ports **5173** and **5174**. If the frontend runs on a different port, add it to the `origins` list in `ai/run.py`.
